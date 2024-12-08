@@ -1,3 +1,5 @@
+import datetime
+
 class McFastBurguer:
     def __init__(self):
         self.cardapio = {
@@ -64,13 +66,18 @@ class McFastBurguer:
         total_vendas = 0
         relatorio = "----- Relatório de Vendas -----\n"
         for i, pedido in enumerate(self.pedidos, start=1):
-            relatorio += f"\nPedido #{i}:\n"
+            relatorio += f"\nPedido #{i} - {pedido['data_hora'].strftime('%d/%m/%Y %H:%M:%S')}\n"  # Adiciona data e hora
+            total_pedido = 0
             for item, preco, quantidade in pedido["itens"]:
                 subtotal = preco * quantidade
                 relatorio += f"  {quantidade}x {item:<30} R${subtotal:.2f}\n"
-                total_vendas += subtotal
+                total_pedido += subtotal
+            relatorio += f"  Total do pedido: R$ {total_pedido:.2f}\n"
             relatorio += f"  Status: {pedido['status']}\n"
+            total_vendas += total_pedido
         relatorio += f"\nTotal Final do Dia: R${total_vendas:.2f}\n"
         relatorio += "-------------------------------"
         return relatorio
+    
+ 
 

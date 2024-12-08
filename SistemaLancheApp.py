@@ -1,3 +1,4 @@
+import datetime
 from SistemaLanche import McFastBurguer
 import tkinter as tk
 from tkinter import Toplevel, ttk, messagebox, simpledialog
@@ -41,24 +42,28 @@ class McFastBurguerApp:
         self.janela_controle = Toplevel(self.root)
         self.janela_controle.title("Controle de Pedidos")
 
-        # Tabela de pedidos
+        # Tabela de pedidos (adicionando coluna Data/Hora)
         self.lista_controle = ttk.Treeview(
-            self.janela_controle,
-            columns=("Item", "Quantidade", "Preço", "Status"),
-            show="tree",
-            height=20
-        )
+                self.janela_controle,
+                columns=("Pedido","Item", "Quantidade", "Preço", "Status", "Data/Hora"),
+                show="headings",
+                height=20
+            )              
+        self.lista_controle.pack(fill=tk.BOTH, expand=True)  # Exibe a tabela
+        self.lista_controle.heading("Pedido", text="Pedido")  # Cabeçalho da coluna
+        self.lista_controle.column("Pedido", width=80, anchor=tk.CENTER)  # Largura e alinhamento
         self.lista_controle.heading("#0", text="Pedido")
         self.lista_controle.heading("Item", text="Item")
         self.lista_controle.heading("Quantidade", text="Quantidade")
         self.lista_controle.heading("Preço", text="Preço (R$)")
         self.lista_controle.heading("Status", text="Status")
+        self.lista_controle.heading("Data/Hora", text="Data/Hora")  # Adicionando cabeçalho
         self.lista_controle.column("#0", width=100, anchor=tk.W)
         self.lista_controle.column("Item", width=200, anchor=tk.W)
         self.lista_controle.column("Quantidade", width=100, anchor=tk.CENTER)
         self.lista_controle.column("Preço", width=100, anchor=tk.CENTER)
         self.lista_controle.column("Status", width=100, anchor=tk.CENTER)
-        self.lista_controle.pack(fill=tk.BOTH, expand=True)
+        self.lista_controle.column("Data/Hora", width=150, anchor=tk.CENTER)  # Adicionando coluna
 
         # Botão para marcar como concluído
         btn_concluir = tk.Button(
@@ -76,22 +81,32 @@ class McFastBurguerApp:
         self.lista_controle.delete(*self.lista_controle.get_children())
 
         for idx, pedido in enumerate(self.mc_fast_burguer.pedidos, start=1):
-            # Adiciona o título do pedido como nó principal
+            # Adiciona o título do pedido como nó principal (incluindo data/hora)
+            data_hora_formatada = pedido["data_hora"].strftime('%d/%m/%Y %H:%M:%S')
+            
+            # Criando uma lista de valores para a linha do pedido
+            valores_pedido = [idx, "", "", "", pedido["status"], data_hora_formatada]  
+            
             pedido_id = self.lista_controle.insert(
-                "", tk.END, text=f"Pedido #{idx}", values=("", "", "", pedido["status"])
+                "", tk.END, text=f"Pedido #{idx}", values=valores_pedido
             )
 
-            total_pedido = 0  # Inicializa o total do pedido
+            total_pedido = 0
             for item, preco, quantidade in pedido["itens"]:
                 subtotal = preco * quantidade
                 total_pedido += subtotal
+                
+                # Criando uma lista de valores para a linha do item
+                valores_item = [idx, item, quantidade, f"{subtotal:.2f}", "", ""]  
+                
                 self.lista_controle.insert(
-                    pedido_id, tk.END, values=(item, quantidade, f"{subtotal:.2f}", "")
+                    pedido_id, tk.END, values=valores_item
                 )
 
             # Inserir o total do pedido na Treeview
+            valores_total = [idx, "", "", f"Total: R$ {total_pedido:.2f}", "", ""]
             self.lista_controle.insert(
-                pedido_id, tk.END, values=("", "", f"Total: R$ {total_pedido:.2f}", "")
+                pedido_id, tk.END, values=valores_total
             )
 
             if pedido["status"] == "concluído":
@@ -108,7 +123,7 @@ class McFastBurguerApp:
 
         # Verifica se o item selecionado é um título de pedido
         valores = self.lista_controle.item(item_selecionado)["values"]
-        if not valores or valores[3] == "":
+        if not valores or valores[4] == "":  # Alterar índice para 4
             messagebox.showwarning("Aviso", "Selecione o título de um pedido para concluir.")
             return
 
@@ -119,10 +134,7 @@ class McFastBurguerApp:
         self._atualizar_janela_controle()
 
 
-    def _criar_cardapio(self):
-        """Cria a interface do cardápio."""
-        label_cardapio = tk.Label(self.frame_cardapio, text="Cardápio", font=("Helvetica", 20, "bold"), bg="#222222", fg="white")  # Cor de fundo e texto
-        label_cardapio.pack(pady=10)
+
 
     def _criar_cardapio(self):
         """Cria a interface do cardápio."""
@@ -134,6 +146,7 @@ class McFastBurguerApp:
         estilo_treeview.configure("meu_estilo.Treeview", font=("Helvetica", 12))
 
         self.lista_cardapio = ttk.Treeview(self.frame_cardapio, columns=("Preço"), show="tree headings", height=20, style="meu_estilo.Treeview")
+        self.lista_cardapio.bind("<Return>", self.adicionar_ao_pedido)  # Vincula o evento <Return>
         self.lista_cardapio.heading("#0", text="Categoria / Item")
         self.lista_cardapio.heading("Preço", text="Preço (R$)")
         self.lista_cardapio.column("#0", width=200, anchor=tk.W)
@@ -195,17 +208,21 @@ class McFastBurguerApp:
         btn_relatorio.bind("<Enter>", lambda e: btn_relatorio.config(bg="#555555"))
         btn_relatorio.bind("<Leave>", lambda e: btn_relatorio.config(bg="SystemButtonFace"))
 
+        
+
     def adicionar_ao_pedido(self):
         """Adiciona um item ao pedido e atualiza a janela de controle."""
         item_selecionado = self.lista_cardapio.focus()
         if not item_selecionado:
             messagebox.showwarning("Aviso", "Selecione um item do cardápio.")
             return
+            
 
         # Obtém informações do item selecionado
         dados_item = self.lista_cardapio.item(item_selecionado)
         item_nome = dados_item.get("text", "")  # Nome do item está no campo "text"
         item_valores = dados_item.get("values", [])
+        
 
         # Verifica se o item tem um nome válido
         if not item_nome:
@@ -249,9 +266,12 @@ class McFastBurguerApp:
             messagebox.showwarning("Aviso", "Nenhum pedido registrado.")
             return
 
-        # Salva o pedido com status inicial "pendente"
-        self.mc_fast_burguer.pedidos.append({"itens": self.pedido_atual[:], "status": "pendente"})
-        
+        # Obtém a data e hora atuais
+        data_hora = datetime.datetime.now()
+
+        # Salva o pedido com status inicial "pendente" e data/hora
+        self.mc_fast_burguer.pedidos.append({"itens": self.pedido_atual[:], "status": "pendente", "data_hora": data_hora})
+
         total = sum(preco * quantidade for _, preco, quantidade in self.pedido_atual)
         self.pedido_atual.clear()
         self._atualizar_pedido()
