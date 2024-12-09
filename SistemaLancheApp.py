@@ -1,7 +1,7 @@
 import datetime
 from SistemaLanche import McFastBurguer
 import tkinter as tk
-from tkinter import Toplevel, ttk, messagebox, simpledialog
+from tkinter import Toplevel, ttk, messagebox, simpledialog, PhotoImage
 
 
 class McFastBurguerApp:
@@ -21,6 +21,8 @@ class McFastBurguerApp:
             fieldbackground="#333333"
         )
         estilo.map('Treeview', background=[('selected', '#555555')])
+        self.icone_aumentar = PhotoImage(file="img/botao-de-upload.png")
+        self.icone_apagar = PhotoImage(file="img/excluir.png")
 
         # Configuração de frames
         self.frame_cardapio = tk.Frame(root, bg="#222222")  # Cor de fundo do frame
@@ -32,6 +34,30 @@ class McFastBurguerApp:
         # Inicialização das interfaces
         self._criar_cardapio()
         self._criar_pedido()
+
+    def aumentar_quantidade(self):
+        """Aumenta a quantidade do item selecionado no pedido."""
+        selecionado = self.lista_pedido.focus()
+        if selecionado:
+            try:
+                indice = self.lista_pedido.index(selecionado)
+                item, preco, quantidade = self.pedido_atual[indice]
+                quantidade += 1
+                self.pedido_atual[indice] = (item, preco, quantidade)
+                self._atualizar_pedido()
+            except IndexError:
+                messagebox.showwarning("Aviso", "Selecione um item válido no pedido.")
+
+    def remover_item(self):
+        """Remove o item selecionado do pedido."""
+        selecionado = self.lista_pedido.focus()
+        if selecionado:
+            try:
+                indice = self.lista_pedido.index(selecionado)
+                del self.pedido_atual[indice]
+                self._atualizar_pedido()
+            except IndexError:
+                messagebox.showwarning("Aviso", "Selecione um item válido no pedido.")
 
     def abrir_janela_controle(self):
         """Abre uma nova janela para controle dos pedidos."""
@@ -133,8 +159,35 @@ class McFastBurguerApp:
 
         self._atualizar_janela_controle()
 
+    def aumentar_quantidade(self):
+        """Aumenta a quantidade do item selecionado no pedido."""
+        item_selecionado = self.lista_pedido.focus()
+        if item_selecionado:
+            try:
+                item_index = self.lista_pedido.index(item_selecionado)
+                item, preco, quantidade = self.pedido_atual[item_index]
+                quantidade += 1
+                self.pedido_atual[item_index] = (item, preco, quantidade)
+                self._atualizar_pedido()
+            except IndexError:
+                messagebox.showwarning("Aviso", "Selecione um item válido no pedido.")
 
 
+    def mostrar_botao_aumentar_quantidade(self, event=None):
+        """Mostra o botão 'Aumentar Quantidade' se um item estiver selecionado."""
+        if self.lista_pedido.focus():  # Verifica se há item selecionado
+            self.btn_aumentar_quantidade.pack(pady=5)
+        else:
+            self.btn_aumentar_quantidade.pack_forget()
+
+    def mostrar_botoes_item(self, event=None):
+        """Mostra/oculta os botões de apagar e aumentar quantidade quando um item estiver selecionado."""
+        if self.lista_pedido.focus():  # Verifica se há item selecionado
+            self.btn_apagar_item.pack(side="right", padx=7)  # Mostra o botão de apagar à esquerda
+            self.btn_aumentar_quantidade.pack(side="left", padx=5)  # Mostra o botão de aumentar à esquerda
+        else:
+            self.btn_apagar_item.pack_forget()  # Oculta o botão de apagar
+            self.btn_aumentar_quantidade.pack_forget()  # Oculta o botão de aumentar
 
     def _criar_cardapio(self):
         """Cria a interface do cardápio."""
@@ -145,6 +198,24 @@ class McFastBurguerApp:
         estilo_treeview = ttk.Style()
         estilo_treeview.configure("meu_estilo.Treeview", font=("Helvetica", 12))
 
+        def adicionar_item_direto(event=None):
+            """Adiciona o item selecionado ao pedido com quantidade 1."""
+            item_selecionado = self.lista_cardapio.focus()
+            if item_selecionado:
+                dados_item = self.lista_cardapio.item(item_selecionado)
+                item_nome = dados_item.get("text", "")
+                if item_nome:  # Verifica se o item tem um nome válido
+                    preco = None
+                    for _, nome, preco_item, _ in self.mc_fast_burguer.itens_numerados:
+                        if nome == item_nome:
+                            preco = preco_item
+                            break
+
+            if preco is not None:
+                self.pedido_atual.append((item_nome, preco, 1))  # Quantidade 1
+                self._atualizar_pedido()
+                messagebox.showinfo("Item Adicionado", f"'{item_nome}' adicionado ao pedido.")
+
         self.lista_cardapio = ttk.Treeview(self.frame_cardapio, columns=("Preço"), show="tree headings", height=20, style="meu_estilo.Treeview")
         self.lista_cardapio.bind("<Return>", self.adicionar_ao_pedido)  # Vincula o evento <Return>
         self.lista_cardapio.heading("#0", text="Categoria / Item")
@@ -152,6 +223,8 @@ class McFastBurguerApp:
         self.lista_cardapio.column("#0", width=200, anchor=tk.W)
         self.lista_cardapio.column("Preço", width=100, anchor=tk.CENTER)
         self.lista_cardapio.pack(fill=tk.BOTH, expand=True)
+        self.lista_cardapio.bind("<Double-Button-1>", adicionar_item_direto)  # Clique duplo
+        self.lista_cardapio.bind("<Return>", adicionar_item_direto)  # Tecla Enter
 
         for categoria, itens in self.mc_fast_burguer.cardapio.items():
             cat_id = self.lista_cardapio.insert("", tk.END, text=categoria, open=True)
@@ -163,6 +236,7 @@ class McFastBurguerApp:
         btn_adicionar.pack(pady=10)
         btn_adicionar.bind("<Enter>", lambda e: btn_adicionar.config(bg="#555555"))
         btn_adicionar.bind("<Leave>", lambda e: btn_adicionar.config(bg="SystemButtonFace"))
+       
 
         # Botão controle com hover
         btn_controle = tk.Button(self.frame_cardapio, text="Abrir Controle de Pedidos", command=self.abrir_janela_controle)
@@ -170,6 +244,8 @@ class McFastBurguerApp:
         btn_controle.bind("<Enter>", lambda e: btn_controle.config(bg="#555555"))
         btn_controle.bind("<Leave>", lambda e: btn_controle.config(bg="SystemButtonFace"))
 
+
+        
 
     def _criar_pedido(self):
         """Cria a interface do pedido."""
@@ -195,6 +271,7 @@ class McFastBurguerApp:
         self.lista_pedido.column("Quantidade", width=100, anchor=tk.CENTER)
         self.lista_pedido.column("Preço", width=100, anchor=tk.CENTER)
         self.lista_pedido.pack(fill=tk.BOTH, expand=True)
+        self.lista_pedido.bind("<<TreeviewSelect>>", self.mostrar_botoes_item)
 
         # Botão finalizar com hover
         btn_finalizar = tk.Button(self.frame_pedido, text="Finalizar Pedido", command=self.finalizar_pedido)
@@ -208,6 +285,13 @@ class McFastBurguerApp:
         btn_relatorio.bind("<Enter>", lambda e: btn_relatorio.config(bg="#555555"))
         btn_relatorio.bind("<Leave>", lambda e: btn_relatorio.config(bg="SystemButtonFace"))
 
+         # Botão para apagar o item
+        self.btn_apagar_item = tk.Button(self.frame_pedido, image=self.icone_apagar, command=self.remover_item)
+        self.btn_apagar_item.pack_forget()  # Inicialmente oculto
+
+        # Botão para aumentar a quantidade
+        self.btn_aumentar_quantidade = tk.Button(self.frame_pedido, image=self.icone_aumentar, command=self.aumentar_quantidade)
+        self.btn_aumentar_quantidade.pack_forget()  # Inicialmente oculto
         
 
     def adicionar_ao_pedido(self):
